@@ -1,0 +1,63 @@
+flowchart LR
+  Client["Клиент<br/>B2B / B2C"]
+  Driver["Водитель<br/>курьер"]
+  Sensors["Датчики<br/>GPS / ГЛОНАСС"]
+
+  subgraph EDGE["Edge-контур"]
+    GW["API Gateway<br/>аутентификация, rate limit"]
+    BW["BFF Web"]
+    BM["BFF Mobile"]
+  end
+
+  subgraph CORE["Домены - Database per Service"]
+    OR["Orders"]
+    WH["Warehouse"]
+    DL["Delivery"]
+    BL["Billing"]
+    PR["Profiles<br/>PII Vault"]
+    SG["Saga-оркестратор<br/>ORDERS → DESADV → INVOIC"]
+  end
+
+  subgraph ISO["Изолированные адаптеры"]
+    PS["Payment Adapter"]
+    EDIA["EDI-адаптер"]
+    TEL["Telemetry Ingest<br/>MQTT / HTTP"]
+  end
+
+  BUS[["Event backbone<br/>Kafka + Schema Registry"]]
+  MASK["Стриминговое<br/>обезличивание"]
+  TSDB[("Time-series<br/>хранилище")]
+  RM[("Read-модель<br/>сквозная история")]
+
+  BANK["Банк-эквайер"]
+  DWH[("DWH холдинга")]
+  CRM["CRM холдинга"]
+  NET["EDI-шлюзы<br/>торговых сетей"]
+
+  Client --> GW
+  Driver --> GW
+  GW --> BW
+  GW --> BM
+  BW --> OR
+  BW --> BL
+  BM --> DL
+  Client -. "PAN не входит<br/>в контур Fast Cargo" .-> BANK
+  BANK -- вебхук --> PS
+  Sensors --> TEL
+
+  OR <--> BUS
+  WH <--> BUS
+  DL <--> BUS
+  BL <--> BUS
+  PR --> BUS
+  SG <--> BUS
+  PS --> BUS
+  TEL --> BUS
+  EDIA <--> BUS
+  EDIA <--> NET
+
+  BUS --> TSDB
+  BUS --> RM
+  BUS --> MASK
+  MASK --> DWH
+  RM --> CRM
